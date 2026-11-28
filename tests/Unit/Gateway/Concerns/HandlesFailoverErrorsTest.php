@@ -243,3 +243,106 @@ test('a request is not retried without a short Retry-After on a failoverable sta
     'fractional delay' => [429, ['Retry-After' => '1.5']],
     'client error' => [400, ['Retry-After' => '1']],
 ]);
+
+test('a request is retried after its retry-after-ms delay, which takes precedence over Retry-After', function (): void {
+    Sleep::fake();
+
+    $attempts = 0;
+
+    $result = $this->gateway->withErrorHandling('anthropic', function () use (&$attempts): string {
+        if (++$attempts === 1) {
+            throw failoverableException(429, headers: ['retry-after-ms' => '1500', 'Retry-After' => '9']);
+        }
+
+        return 'ok';
+    });
+
+    expect($result)->toBe('ok')
+        ->and($attempts)->toBe(2);
+
+    Sleep::assertSequence([Sleep::for(1500)->milliseconds()]);
+});
+
+test('a retry-after-ms delay up to ten seconds is honored', function (): void {
+    Sleep::fake();
+
+    $attempts = 0;
+
+    $this->gateway->withErrorHandling('anthropic', function () use (&$attempts): string {
+        if (++$attempts === 1) {
+            throw failoverableException(529, headers: ['retry-after-ms' => '10000']);
+        }
+
+        return 'ok';
+    });
+
+    Sleep::assertSequence([Sleep::for(10_000)->milliseconds()]);
+});
+
+test('a request is not retried when the provider says it should not be or the delay is too long', function (array $headers): void {
+    Sleep::fake();
+
+    $attempts = 0;
+
+    $request = function () use ($headers, &$attempts): never {
+        $attempts++;
+
+        throw failoverableException(429, headers: $headers);
+    };
+
+    expect(fn () => $this->gateway->withErrorHandling('anthropic', $request))->toThrow(RateLimitedException::class);
+
+    expect($attempts)->toBe(1);
+
+    Sleep::assertNeverSlept();
+})->with([
+    'x-should-retry false' => [['x-should-retry' => 'false', 'Retry-After' => '1']],
+    'x-should-retry False with ms' => [['x-should-retry' => 'False', 'retry-after-ms' => '100']],
+    'retry-after-ms over the cap' => [['retry-after-ms' => '10001', 'Retry-After' => '1']],
+]);
+
+test('x-should-retry true does not force a retry without a delay header', function (): void {
+    Sleep::fake();
+
+    $attempts = 0;
+
+    $request = function () use (&$attempts): never {
+        $attempts++;
+
+        throw failoverableException(429, headers: ['x-should-retry' => 'true']);
+    };
+
+    expect(fn () => $this->gateway->withErrorHandling('anthropic', $request))->toThrow(RateLimitedException::class);
+
+    expect($attempts)->toBe(1);
+});
+
+test('a response the gateway treats as an invalid API key is never retried', function (): void {
+    Sleep::fake();
+
+    $gateway = new class
+    {
+        use HandlesFailoverErrors {
+            withErrorHandling as public;
+        }
+
+        protected function isInvalidApiKey(RequestException $exception): bool
+        {
+            return $exception->response?->status() === 429;
+        }
+    };
+
+    $attempts = 0;
+
+    $request = function () use (&$attempts): never {
+        $attempts++;
+
+        throw failoverableException(429, headers: ['Retry-After' => '1']);
+    };
+
+    expect(fn () => $gateway->withErrorHandling('laravel', $request))->toThrow(InvalidApiKeyException::class);
+
+    expect($attempts)->toBe(1);
+
+    Sleep::assertNeverSlept();
+});

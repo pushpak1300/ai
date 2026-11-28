@@ -14,7 +14,7 @@ class Stores
      */
     public static function get(string $storeId, ?string $provider = null): Store
     {
-        return Ai::fakeableStoreProvider($provider)->getStore($storeId);
+        return Ai::fakeableStoreProvider($provider ?? config('ai.default_for_stores') ?? config('ai.default'))->getStore($storeId);
     }
 
     /**
@@ -27,7 +27,7 @@ class Stores
         ?DateInterval $expiresWhenIdleFor = null,
         ?string $provider = null): Store
     {
-        return Ai::fakeableStoreProvider($provider)->createStore(
+        return Ai::fakeableStoreProvider($provider ?? config('ai.default_for_stores') ?? config('ai.default'))->createStore(
             $name, $description, Collection::make($fileIds), $expiresWhenIdleFor
         );
     }
@@ -37,7 +37,7 @@ class Stores
      */
     public static function delete(string $storeId, ?string $provider = null): bool
     {
-        return Ai::fakeableStoreProvider($provider)->deleteStore($storeId);
+        return Ai::fakeableStoreProvider($provider ?? config('ai.default_for_stores') ?? config('ai.default'))->deleteStore($storeId);
     }
 
     /**

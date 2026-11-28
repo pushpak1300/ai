@@ -33,7 +33,7 @@ trait BuildsTextRequests
             'max_tokens' => $options?->maxTokens ?? 64_000,
         ];
 
-        $providerOptions = $options?->providerOptions($provider->driver()) ?? [];
+        $providerOptions = $this->resolveProviderOptions($options, $provider) ?? [];
 
         if (filled($instructions)) {
             $body['system'] = $instructions;
@@ -78,6 +78,16 @@ trait BuildsTextRequests
         }
 
         return $this->applyPromptCacheBreakpoints(array_merge($body, $providerOptions), $options);
+    }
+
+    /**
+     * Resolve the provider options the agent and prompt set for this provider.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function resolveProviderOptions(?TextGenerationOptions $options, Provider $provider): ?array
+    {
+        return $options?->providerOptions($provider->driver());
     }
 
     /**

@@ -28,8 +28,8 @@ trait HandlesFailoverErrors
             return retry(
                 2,
                 $callback,
-                fn (int $attempt, Throwable $exception): int => $this->retryAfterSeconds($exception) * 1000,
-                fn (Throwable $exception): bool => $this->retryAfterSeconds($exception) !== null,
+                fn (int $attempt, Throwable $exception): int => (int) $this->retryAfterMilliseconds($exception),
+                fn (Throwable $exception): bool => $this->retryAfterMilliseconds($exception) !== null,
             );
         } catch (ConnectionException $connectionException) {
             throw ProviderConnectionException::forProvider(
@@ -83,15 +83,15 @@ trait HandlesFailoverErrors
     }
 
     /**
-     * Get the short Retry-After delay of a rate limited or overloaded response, if it has one.
+     * Get the short retry delay, in milliseconds, of a rate limited or overloaded response, if it has one.
      */
-    protected function retryAfterSeconds(Throwable $exception): ?int
+    protected function retryAfterMilliseconds(Throwable $exception): ?int
     {
         if (! $exception instanceof RequestException || $exception->response === null) {
             return null;
         }
 
-        if ($this->isInsufficientCredits($exception)) {
+        if ($this->isInvalidApiKey($exception) || $this->isInsufficientCredits($exception)) {
             return null;
         }
 
@@ -101,9 +101,19 @@ trait HandlesFailoverErrors
             return null;
         }
 
+        if (strtolower(trim($exception->response->header('x-should-retry'))) === 'false') {
+            return null;
+        }
+
+        $retryAfterMs = $exception->response->header('retry-after-ms');
+
+        if (ctype_digit($retryAfterMs)) {
+            return (int) $retryAfterMs <= 10_000 ? (int) $retryAfterMs : null;
+        }
+
         $retryAfter = $exception->response->header('Retry-After');
 
-        return ctype_digit($retryAfter) && (int) $retryAfter <= 10 ? (int) $retryAfter : null;
+        return ctype_digit($retryAfter) && (int) $retryAfter <= 10 ? (int) $retryAfter * 1000 : null;
     }
 
     /**

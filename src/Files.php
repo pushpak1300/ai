@@ -19,7 +19,7 @@ class Files
      */
     public static function get(string $fileId, ?string $provider = null): FileResponse
     {
-        return Ai::fakeableFileProvider($provider)->getFile($fileId);
+        return Ai::fakeableFileProvider($provider ?? config('ai.default_for_files') ?? config('ai.default'))->getFile($fileId);
     }
 
     /**
@@ -45,7 +45,7 @@ class Files
             $file = $file->withMimeType($mimeType);
         }
 
-        return Ai::fakeableFileProvider($provider)->putFile($file);
+        return Ai::fakeableFileProvider($provider ?? config('ai.default_for_files') ?? config('ai.default'))->putFile($file);
     }
 
     /**
@@ -69,7 +69,7 @@ class Files
      */
     public static function delete(string $fileId, ?string $provider = null): void
     {
-        Ai::fakeableFileProvider($provider)->deleteFile($fileId);
+        Ai::fakeableFileProvider($provider ?? config('ai.default_for_files') ?? config('ai.default'))->deleteFile($fileId);
     }
 
     /**

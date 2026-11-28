@@ -64,15 +64,15 @@ class LaravelGateway implements StepTextGateway
     /**
      * Get the gateway that serves the given model.
      *
-     * Claude models are served by the gateway's Anthropic Messages endpoint, while vendor-prefixed models such as "openai/gpt-5-4" are served by its Open Responses endpoint.
+     * Models prefixed with "anthropic/" are served by the gateway's Anthropic Messages endpoint, while every other model is served by its Open Responses endpoint.
      */
     public function gatewayFor(string $model): StepTextGateway
     {
-        if (str_contains($model, '/')) {
-            return $this->openResponsesGateway ??= new LaravelOpenResponsesGateway($this->events);
+        if (str_starts_with($model, 'anthropic/')) {
+            return $this->anthropicGateway ??= new LaravelAnthropicGateway($this->events);
         }
 
-        return $this->anthropicGateway ??= new LaravelAnthropicGateway($this->events);
+        return $this->openResponsesGateway ??= new LaravelOpenResponsesGateway($this->events);
     }
 
     /**

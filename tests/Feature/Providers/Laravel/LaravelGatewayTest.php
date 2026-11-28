@@ -79,9 +79,9 @@ test('the laravel provider is the default text provider with Claude defaults', f
     $provider = app(AiManager::class)->textProvider('laravel');
 
     expect($provider)->toBeInstanceOf(LaravelProvider::class)
-        ->and($provider->defaultTextModel())->toBe('claude-sonnet-5')
-        ->and($provider->cheapestTextModel())->toBe('claude-haiku-4-5')
-        ->and($provider->smartestTextModel())->toBe('claude-opus-5-5');
+        ->and($provider->defaultTextModel())->toBe('anthropic/claude-sonnet-5')
+        ->and($provider->cheapestTextModel())->toBe('anthropic/claude-haiku-4-5')
+        ->and($provider->smartestTextModel())->toBe('anthropic/claude-opus-5-5');
 });
 
 test('the default models can be overridden', function (): void {
@@ -91,17 +91,17 @@ test('the default models can be overridden', function (): void {
 
     expect($provider->defaultTextModel())->toBe('openai/gpt-5-4')
         ->and($provider->cheapestTextModel())->toBe('openai/gpt-oss-120b')
-        ->and($provider->smartestTextModel())->toBe('claude-opus-5-5');
+        ->and($provider->smartestTextModel())->toBe('anthropic/claude-opus-5-5');
 });
 
-test('Claude models are sent to the Anthropic endpoint with bearer auth', function (): void {
+test('anthropic prefixed models are sent unprefixed to the Anthropic endpoint with bearer auth', function (): void {
     Http::fake(['*' => Http::response(laravelAnthropicResponse())]);
 
-    $response = agent()->prompt('Hello', provider: 'laravel', model: 'claude-opus-5-5');
+    $response = agent()->prompt('Hello', provider: 'laravel', model: 'anthropic/claude-opus-5-5');
 
     expect($response->text)->toBe('Hello from Claude')
         ->and($response->meta->provider)->toBe('laravel')
-        ->and($response->meta->model)->toBe('claude-opus-5-5');
+        ->and($response->meta->model)->toBe('anthropic/claude-opus-5-5');
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://gateway.laravel.cloud/v1/anthropic/v1/messages'
         && $request->hasHeader('Authorization', 'Bearer cloud-key')
@@ -116,13 +116,13 @@ test('the anthropic version and beta headers can be configured', function (): vo
 
     Http::fake(['*' => Http::response(laravelAnthropicResponse())]);
 
-    agent()->prompt('Hello', provider: 'laravel', model: 'claude-haiku-4-5');
+    agent()->prompt('Hello', provider: 'laravel', model: 'anthropic/claude-haiku-4-5');
 
     Http::assertSent(fn (Request $request): bool => $request->hasHeader('anthropic-version', '2024-01-01')
         && $request->hasHeader('anthropic-beta', 'web-fetch-2025-09-10'));
 });
 
-test('vendor prefixed models are sent statelessly to the Open Responses endpoint', function (string $model): void {
+test('every other model is sent statelessly to the Open Responses endpoint', function (string $model): void {
     Http::fake(['*' => Http::response(laravelResponsesResponse(model: $model))]);
 
     $response = agent()->prompt('Hello', provider: 'laravel', model: $model);
@@ -135,7 +135,7 @@ test('vendor prefixed models are sent statelessly to the Open Responses endpoint
         && laravelBody($request)['model'] === $model
         && laravelBody($request)['store'] === false
         && ! isset(laravelBody($request)['include']));
-})->with(['openai/gpt-5-4', 'openai/gpt-oss-120b', 'deepseek/deepseek-v3-2']);
+})->with(['openai/gpt-5-4', 'openai/gpt-oss-120b', 'deepseek/deepseek-v3-2', 'claude-opus-5-5']);
 
 test('the store option cannot make the Open Responses route stateful', function (): void {
     config(['ai.providers.laravel.store' => true]);
@@ -167,7 +167,7 @@ test('the configured url is normalized to the gateway root', function (string $u
         '*/v1/openai/v1/responses' => Http::response(laravelResponsesResponse()),
     ]);
 
-    agent()->prompt('Hello', provider: 'laravel', model: 'claude-sonnet-5');
+    agent()->prompt('Hello', provider: 'laravel', model: 'anthropic/claude-sonnet-5');
     agent()->prompt('Hello', provider: 'laravel', model: 'openai/gpt-5-4');
 
     $urls = Http::recorded()->map(fn (array $pair): string => $pair[0]->url())->all();
@@ -197,7 +197,7 @@ test('each route merges its own lab options with the laravel options', function 
         'laravel' => ['metadata' => ['user_id' => 'laravel']],
     ]);
 
-    $agent->prompt('Hello', provider: 'laravel', model: 'claude-sonnet-5');
+    $agent->prompt('Hello', provider: 'laravel', model: 'anthropic/claude-sonnet-5');
     $agent->prompt('Hello', provider: 'laravel', model: 'openai/gpt-5-4');
 
     [$anthropic, $responses] = Http::recorded()->map(fn (array $pair): array => laravelBody($pair[0]))->all();
@@ -218,8 +218,8 @@ test('provider file IDs are rejected on both routes', function (string $model, o
 
     Http::assertNothingSent();
 })->with([
-    'anthropic image' => fn () => ['claude-sonnet-5', Image::fromId('file_1')],
-    'anthropic document' => fn () => ['claude-sonnet-5', Document::fromId('file_1')],
+    'anthropic image' => fn () => ['anthropic/claude-sonnet-5', Image::fromId('file_1')],
+    'anthropic document' => fn () => ['anthropic/claude-sonnet-5', Document::fromId('file_1')],
     'responses image' => fn () => ['openai/gpt-5-4', Image::fromId('file_1')],
     'responses document' => fn () => ['openai/gpt-5-4', Document::fromId('file_1')],
 ]);
@@ -275,7 +275,7 @@ test('Open Responses history is replayed generically on the Anthropic route', fu
             ['type' => 'reasoning', 'id' => 'rs_1', 'summary' => []],
             ['type' => 'message', 'role' => 'assistant', 'content' => [['type' => 'output_text', 'text' => 'Earlier answer']]],
         ]),
-    ])->prompt('Again', provider: 'laravel', model: 'claude-sonnet-5');
+    ])->prompt('Again', provider: 'laravel', model: 'anthropic/claude-sonnet-5');
 
     Http::assertSent(fn (Request $request): bool => laravelBody($request)['messages'][1] === [
         'role' => 'assistant',
@@ -293,7 +293,7 @@ test('matching history is replayed verbatim on each route', function (): void {
     $reasoning = ['type' => 'reasoning', 'id' => 'rs_1', 'summary' => [], 'encrypted_content' => 'enc'];
 
     agent(messages: [new UserMessage('Hi'), new AssistantMessage('A', replayBlocks: [$thinking, ['type' => 'text', 'text' => 'A']])])
-        ->prompt('Again', provider: 'laravel', model: 'claude-sonnet-5');
+        ->prompt('Again', provider: 'laravel', model: 'anthropic/claude-sonnet-5');
     agent(messages: [new UserMessage('Hi'), new AssistantMessage('B', replayBlocks: [$reasoning, ['type' => 'message', 'role' => 'assistant', 'content' => [['type' => 'output_text', 'text' => 'B']]]])])
         ->prompt('Again', provider: 'laravel', model: 'openai/gpt-5-4');
 
@@ -313,15 +313,15 @@ test('streamed Claude responses report the requested catalog model', function ()
         ['type' => 'message_stop'],
     ]), 200, ['Content-Type' => 'text/event-stream'])]);
 
-    $stream = agent()->stream('Hello', provider: 'laravel', model: 'claude-opus-5-5');
+    $stream = agent()->stream('Hello', provider: 'laravel', model: 'anthropic/claude-opus-5-5');
 
     foreach ($stream as $event) {
         //
     }
 
     expect($stream->text)->toBe('Streamed')
-        ->and($stream->events->whereInstanceOf(StreamStart::class)->first()->model)->toBe('claude-opus-5-5')
-        ->and($stream->events->whereInstanceOf(StreamEnd::class)->last()->steps->last()->meta->model)->toBe('claude-opus-5-5');
+        ->and($stream->events->whereInstanceOf(StreamStart::class)->first()->model)->toBe('anthropic/claude-opus-5-5')
+        ->and($stream->events->whereInstanceOf(StreamEnd::class)->last()->steps->last()->meta->model)->toBe('anthropic/claude-opus-5-5');
 
     Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/v1/anthropic/v1/messages'));
 });
@@ -331,7 +331,7 @@ test('gateway errors map to failover exceptions without retrying', function (int
 
     Http::fake(['*' => Http::response($body, $status, ['Retry-After' => '1'])]);
 
-    expect(fn (): AgentResponse => agent()->prompt('Hello', provider: 'laravel', model: 'claude-sonnet-5'))
+    expect(fn (): AgentResponse => agent()->prompt('Hello', provider: 'laravel', model: 'anthropic/claude-sonnet-5'))
         ->toThrow($exception);
 
     Http::assertSentCount($exception === InvalidApiKeyException::class ? 1 : 2);

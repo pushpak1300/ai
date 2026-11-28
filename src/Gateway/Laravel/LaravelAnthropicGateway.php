@@ -5,6 +5,7 @@ namespace Laravel\Ai\Gateway\Laravel;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Enums\Lab;
@@ -37,7 +38,7 @@ class LaravelAnthropicGateway extends AnthropicGateway
         ?int $timeout,
         StepContext $stepContext,
     ): StepResponse {
-        $response = parent::generateTextStep($provider, $model, $instructions, $messages, $tools, $schema, $options, $timeout, $stepContext);
+        $response = parent::generateTextStep($provider, $this->catalogModel($model), $instructions, $messages, $tools, $schema, $options, $timeout, $stepContext);
 
         // The gateway answers with the upstream model ID, such as a Bedrock ARN, rather than the catalog ID that was requested...
         $response->meta->model = $model;
@@ -60,7 +61,7 @@ class LaravelAnthropicGateway extends AnthropicGateway
         ?int $timeout,
         StepContext $stepContext,
     ): Generator {
-        $stream = parent::generateStreamStep($invocationId, $provider, $model, $instructions, $messages, $tools, $schema, $options, $timeout, $stepContext);
+        $stream = parent::generateStreamStep($invocationId, $provider, $this->catalogModel($model), $instructions, $messages, $tools, $schema, $options, $timeout, $stepContext);
 
         foreach ($stream as $event) {
             if ($event instanceof StreamStart) {
@@ -77,6 +78,14 @@ class LaravelAnthropicGateway extends AnthropicGateway
         }
 
         return $response;
+    }
+
+    /**
+     * Get the Anthropic-format model ID the Messages endpoint expects, such as "claude-opus-5-5" for "anthropic/claude-opus-5-5".
+     */
+    protected function catalogModel(string $model): string
+    {
+        return Str::after($model, 'anthropic/');
     }
 
     /**

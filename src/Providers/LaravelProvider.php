@@ -40,7 +40,7 @@ class LaravelProvider extends Provider implements TextProvider
      */
     public function defaultTextModel(): string
     {
-        return $this->config['models']['text']['default'] ?? 'claude-sonnet-5';
+        return $this->config['models']['text']['default'] ?? 'anthropic/claude-sonnet-5';
     }
 
     /**
@@ -48,7 +48,7 @@ class LaravelProvider extends Provider implements TextProvider
      */
     public function cheapestTextModel(): string
     {
-        return $this->config['models']['text']['cheapest'] ?? 'claude-haiku-4-5';
+        return $this->config['models']['text']['cheapest'] ?? 'anthropic/claude-haiku-4-5';
     }
 
     /**
@@ -56,6 +56,6 @@ class LaravelProvider extends Provider implements TextProvider
      */
     public function smartestTextModel(): string
     {
-        return $this->config['models']['text']['smartest'] ?? 'claude-opus-5-5';
+        return $this->config['models']['text']['smartest'] ?? 'anthropic/claude-opus-5-5';
     }
 }

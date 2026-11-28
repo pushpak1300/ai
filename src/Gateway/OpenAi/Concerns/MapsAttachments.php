@@ -31,7 +31,7 @@ trait MapsAttachments
      */
     protected function mapAttachments(Collection $attachments, Provider $provider): array
     {
-        $providerKey = Lab::tryFrom($provider->driver()) ?? $provider->driver();
+        $providerKey = $this->attachmentProviderKey($provider);
 
         return $attachments->map(function ($attachment) use ($providerKey): array {
             if (! $attachment instanceof File && ! $attachment instanceof UploadedFile) {
@@ -105,6 +105,14 @@ trait MapsAttachments
                 ? array_merge($attachment->providerOptions($providerKey), $part)
                 : $part;
         })->all();
+    }
+
+    /**
+     * Resolve the provider key passed to attachment provider options callbacks.
+     */
+    protected function attachmentProviderKey(Provider $provider): Lab|string
+    {
+        return Lab::tryFrom($provider->driver()) ?? $provider->driver();
     }
 
     /**

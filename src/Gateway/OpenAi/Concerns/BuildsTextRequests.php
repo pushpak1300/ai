@@ -117,8 +117,8 @@ trait BuildsTextRequests
             $body = array_merge($body, $providerOptions);
         }
 
-        if ($this->isStateless($provider)) {
-            $body['store'] = false;
+        if (($store = $this->storeRequestValue($provider)) !== null) {
+            $body['store'] = $store;
         }
 
         if ($this->isReasoningModel($body['model'] ?? '')) {
@@ -129,6 +129,14 @@ trait BuildsTextRequests
         }
 
         return $body;
+    }
+
+    /**
+     * Resolve the explicit store flag to include on the request body, if any.
+     */
+    protected function storeRequestValue(Provider $provider): ?bool
+    {
+        return $this->isStateless($provider) ? false : null;
     }
 
     /**

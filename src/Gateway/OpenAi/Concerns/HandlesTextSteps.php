@@ -32,6 +32,7 @@ trait HandlesTextSteps
         );
 
         $data = $response->json();
+        $data = is_array($data) ? $data : [];
 
         $this->validateTextResponse($data);
 

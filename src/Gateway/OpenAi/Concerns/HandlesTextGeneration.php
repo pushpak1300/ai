@@ -51,12 +51,20 @@ trait HandlesTextGeneration
             $type = $data['type'] ?? '';
 
             if ($type === 'error' || $type === 'response.failed') {
-                $error = $data['response']['error'] ?? $data['error'] ?? $data;
+                $error = $data['response']['error'] ?? $data['error'] ?? null;
+
+                $errorType = is_array($error)
+                    ? (($error['code'] ?? null) ?: ($error['type'] ?? null) ?: 'unknown_error')
+                    : (($data['code'] ?? null) ?: 'unknown_error');
+
+                $errorMessage = is_array($error)
+                    ? ($error['message'] ?? 'Unknown error')
+                    : ($data['message'] ?? 'Unknown error');
 
                 yield (new Error(
                     $this->generateEventId(),
-                    $error['code'] ?? $error['type'] ?? 'unknown_error',
-                    $error['message'] ?? 'Unknown error',
+                    $errorType,
+                    $errorMessage,
                     false,
                     time(),
                 ))->withInvocationId($invocationId);
@@ -137,7 +145,7 @@ trait HandlesTextGeneration
                 continue;
             }
 
-            if (in_array($type, ['response.reasoning_summary_text.delta', 'response.reasoning_text.delta'], true)) {
+            if (in_array($type, ['response.reasoning_summary_text.delta', 'response.reasoning_text.delta', 'response.reasoning.delta'], true)) {
                 $delta = (string) ($data['delta'] ?? '');
 
                 if ($delta !== '') {

@@ -200,7 +200,6 @@ trait ParsesTextResponses
             };
         }
 
-        // Open Responses extension items are typed "slug:name" and say nothing about why the response stopped...
         $lastOutput = (new Collection($data['output'] ?? []))
             ->reject(fn ($item): bool => is_array($item) && str_contains((string) ($item['type'] ?? ''), ':'))
             ->last();
